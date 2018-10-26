@@ -27,25 +27,46 @@ def construct_season_dataframe(season):
     df = []
 
     for i in range(1855, 2001):
+        mC = get_average_season_temperature(get_data_from_season(season, get_data_from_year(str(i))))
+
         d = {
-            "maxC": get_average_season_temperature(get_data_from_season(season, get_data_from_year(str(i)))),
+            "maxC": mC,
             "yyyy": i
 
         }
+        # This gets rid of anomalies that can have an effect on the overall regression line
 
-        df.append(d)
+        average_season_temp = get_average_season_temperature(get_data_from_season(season, get_data_from_year(str(i))))
+
+        if season == "autumn":
+            if average_season_temp > 15.5 and average_season_temp < 17.5 :
+                df.append(d)
+
+        if season == "summer":
+            if average_season_temp > 15:
+                df.append(d)
+
+        if season == "autumn":
+            if average_season_temp > 7:
+                df.append(d)
+
+        if season == "winter":
+            if average_season_temp > 1 and average_season_temp < 11: #Removing data that isn't in main cluster
+                df.append(d)
+
 
     df = pd.DataFrame(df)
 
     return df
 
 #print(get_data_from_season("winter", get_data_from_year('1975')))
-print(construct_season_dataframe("winter"))
+#print(construct_season_dataframe("winter"))
 
-data = construct_season_dataframe("summer")
+data = construct_season_dataframe("autumn") # use for different seasons
+##data = pd.read_csv('shRawData.csv')
 data.head()
 
-
+#changes these back
 X = data['yyyy'].values
 Y = data['maxC'].values
 
@@ -62,7 +83,7 @@ for i in range(m):
     denom += (X[i] - mean_x)**2
 
 b1 = numer/denom
-b0 = mean_y - (b1 * mean_x)
+b0 = mean_y - (b1 * mean_x)  #calculating the coefficients
 
 print(b1, b0)
 
@@ -72,15 +93,27 @@ min_x = np.min(X)
 x = np.linspace(min_x, max_x, 1000)
 y = b0 + b1 * x
 
-plt.plot(x, y, color='#58b970', label='regression Line')
+ss_t = 0
+ss_r = 0
 
-plt.scatter(X, Y, c='#ef5423', label='Scatter Plot')
+for i in range(m):
+    y_pred = b0 + b1 * X[i]
+    ss_t += (Y[i] - mean_y) ** 2
+    ss_r += (Y[i] - y_pred) ** 2
+
+r2 = 1 - (ss_r / ss_t)
+
+#print(r2*100)
+
+plt.title("Predicting the transition of seasons")
+line = plt.plot(x, y, color='#00FF00', label='regression Line')
+plt.scatter(X, Y, c='#FF0000', label='Scatter Plot')
 
 plt.xlabel('year')
 plt.ylabel('Temperature (c)')
 
-# First split into years and months rrespectivly.
-# Get average temp (min + max / 2)
+new_y = b0 + b1 * 1960 #change back to 2001
+print(r2, new_y, new_y + (new_y * r2))
 
 # THESE VALUES SHOULD BE BASED ON WHAT THE AVERAGE TEMP WAS FOR EACH SEASON MOST RECENTLY
 # Win (Temperature should be between 2 - 7)   (DEC JAN FEB)
