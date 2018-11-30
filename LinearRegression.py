@@ -1,125 +1,105 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import Utils as utils
 
-plt.rcParams['figure.figsize'] = (20.0, 10.0)
+def setup():
+    pd.set_option('display.max_rows', 2000)
+    plt.rcParams['figure.figsize'] = (10.0, 5.0)
 
-#reading data
-d = pd.read_csv('shRawData.csv')
+# reading data
+da = pd.read_csv('rawdata/heathrowRawData.csv')
 
-def get_data_from_year(year):
-    return d.loc[lambda d: d.get('yyyy') == year, :]
+season = "summer"
 
-def get_data_from_season(season, year_data):
-   seasons = {
-       'winter': year_data.loc[lambda year_data: year_data.get('mm').between(1, 3, inclusive=True), :],
-       'spring': year_data.loc[lambda year_data: year_data.get('mm').between(4, 6, inclusive=True), :],
-       'summer': year_data.loc[lambda year_data: year_data.get('mm').between(7, 9, inclusive=True), :],
-       'autumn': year_data.loc[lambda year_data: year_data.get('mm').between(10, 12, inclusive=True), :]
-   }
+def produce_data(season, yyyy):
+    data = utils.construct_season_dataframe(da, season) # use for different seasons
+    # data = pd.read_csv('shRawData.csv')
+    data.head()
 
-   return seasons.get(season)
+    X = data['yyyy'].values
+    Y = data['maxC'].values
 
-def get_average_season_temperature(season_data):
-    return season_data["maxC"].mean()
+    mean_x = np.mean(X)
+    mean_y = np.mean(Y)
 
-def construct_season_dataframe(season):
-    df = []
+    m = len(X)
 
-    for i in range(1855, 2001):
-        mC = get_average_season_temperature(get_data_from_season(season, get_data_from_year(str(i))))
+    numer = 0
+    denom = 0
 
-        d = {
-            "maxC": mC,
-            "yyyy": i
+    for i in range(m):
+        numer += (X[i] - mean_x) * (Y[i]-mean_y)
+        denom += (X[i] - mean_x)**2
 
-        }
-        # This gets rid of anomalies that can have an effect on the overall regression line
+    b1 = numer/denom
+    b0 = mean_y - (b1 * mean_x)  # calculating the coefficients
 
-        average_season_temp = get_average_season_temperature(get_data_from_season(season, get_data_from_year(str(i))))
+    max_x = np.max(X)
+    min_x = np.min(X)
 
-        if season == "autumn":
-            if average_season_temp > 15.5 and average_season_temp < 17.5 :
-                df.append(d)
+    x = np.linspace(min_x, max_x, 1000)
+    y = b0 + b1 * x
 
-        if season == "summer":
-            if average_season_temp > 15:
-                df.append(d)
+    ss_t = 0
+    ss_r = 0
 
-        if season == "autumn":
-            if average_season_temp > 7:
-                df.append(d)
+    for i in range(m):
+        y_pred = b0 + b1 * X[i]
+        ss_t += (Y[i] - mean_y) ** 2
+        ss_r += (Y[i] - y_pred) ** 2
 
-        if season == "winter":
-            if average_season_temp > 1 and average_season_temp < 11: #Removing data that isn't in main cluster
-                df.append(d)
+    r2 = 1 - (ss_r / ss_t)
 
+    # print(r2*100)
 
-    df = pd.DataFrame(df)
+    plt.title("Predicting the transition of seasons: " + season.upper())
+    plt.plot(x, y, color='#0000FF', label='regression Line')
+    plt.scatter(X, Y, c='#FF0000', label='Scatter Plot')
 
-    return df
+    plt.xlabel('year')
+    plt.ylabel('Temperature (c)')
 
-#print(get_data_from_season("winter", get_data_from_year('1975')))
-#print(construct_season_dataframe("winter"))
-
-data = construct_season_dataframe("autumn") # use for different seasons
-##data = pd.read_csv('shRawData.csv')
-data.head()
-
-#changes these back
-X = data['yyyy'].values
-Y = data['maxC'].values
-
-mean_x = np.mean(X)
-mean_y = np.mean(Y)
-
-m = len(X)
-
-numer = 0
-denom = 0
-
-for i in range(m):
-    numer += (X[i] - mean_x) * (Y[i]-mean_y)
-    denom += (X[i] - mean_x)**2
-
-b1 = numer/denom
-b0 = mean_y - (b1 * mean_x)  #calculating the coefficients
-
-print(b1, b0)
-
-max_x = np.max(X)
-min_x = np.min(X)
-
-x = np.linspace(min_x, max_x, 1000)
-y = b0 + b1 * x
-
-ss_t = 0
-ss_r = 0
-
-for i in range(m):
-    y_pred = b0 + b1 * X[i]
-    ss_t += (Y[i] - mean_y) ** 2
-    ss_r += (Y[i] - y_pred) ** 2
-
-r2 = 1 - (ss_r / ss_t)
-
-#print(r2*100)
-
-plt.title("Predicting the transition of seasons")
-line = plt.plot(x, y, color='#00FF00', label='regression Line')
-plt.scatter(X, Y, c='#FF0000', label='Scatter Plot')
-
-plt.xlabel('year')
-plt.ylabel('Temperature (c)')
-
-new_y = b0 + b1 * 1960 #change back to 2001
-print(r2, new_y, new_y + (new_y * r2))
-
+    new_y = b0 + b1 * yyyy
+    print(r2, new_y*r2, season)
+    return new_y * r2
 # THESE VALUES SHOULD BE BASED ON WHAT THE AVERAGE TEMP WAS FOR EACH SEASON MOST RECENTLY
 # Win (Temperature should be between 2 - 7)   (DEC JAN FEB)
 # Spr (Temperature should be between 7 - 15)  (MAR APR MAY)
 # Sum (Temperature should be between 17 - 30) (JUN JULY AUG)
 # Aut (Temperature should be between 15 - 20) (SEP OCT NOV)
 
-plt.legend()
-plt.show()
+def predict_next():
+    new_winter = produce_data("winter", 2018)
+    new_spring = produce_data("spring", 2018)
+    new_summer = produce_data("summer", 2018)
+    new_autumn = produce_data("autumn", 2018)
+
+    new_plot_frame=[]
+
+    new_plot = {
+        "winter": new_winter,
+        "spring": new_spring,
+        "summer": new_summer,
+        "autumn": new_autumn
+    }
+
+    new_plot_frame.append(new_plot)
+    new_plot_frame = pd.DataFrame(new_plot_frame)
+
+    #plt.axis([0, 3, 0, 40])
+    # the predicted weather
+    #plt.plot(['Winter', 'Spring', 'Summer', 'Autumn'], [new_winter, new_spring, new_summer, new_autumn], 'ro')
+    #plt.ylabel('Temperature (degrees (c)' )
+    #plt.xlabel('Season')
+
+    # Perhaps have this as one model and make another with data from average date from area?
+
+    # Talk about how using the fixed dates of the seasons can tell you how long the seasons are "overstepping"
+    print(new_plot)
+    print(new_winter, new_spring, new_summer, new_autumn)
+    plt.legend()
+    plt.show()
+
+setup()
+predict_next()
