@@ -7,11 +7,13 @@ def get_data_from_year(d, year):
 
 def get_data_from_season(season, year_data):
    seasons = {
-       'winter': year_data.loc[lambda year_data: year_data.get('mm').between(1, 3, inclusive=True), :],
-       'spring': year_data.loc[lambda year_data: year_data.get('mm').between(4, 6, inclusive=True), :],
-       'summer': year_data.loc[lambda year_data: year_data.get('mm').between(7, 9, inclusive=True), :],
-       'autumn': year_data.loc[lambda year_data: year_data.get('mm').between(10, 12, inclusive=True), :]
+       'winter': year_data.loc[year_data['mm'].isin([12, 1, 2])], # Talk about this error in the design on the software (and about grabbing the wrong december var)
+       'spring': year_data.loc[year_data['mm'].isin([3, 4, 5])],
+       'summer': year_data.loc[year_data['mm'].isin([6, 7, 8])],
+       'autumn': year_data.loc[year_data['mm'].isin([9, 10, 11])]
+
    }
+   print(seasons.get('winter'))
 
    return seasons.get(season)
 
@@ -21,7 +23,7 @@ def get_average_season_temperature(season_data):
 def construct_season_dataframe(da, season): # Already calculates the average even though its called max.
     df = []
 
-    for i in range(1948, 2019):
+    for i in range(1949, 2019):#1949 instead of 1948 To make sure that when we grab the winter from the year before.
 
         mC = get_average_season_temperature(
             get_data_from_season(season, get_data_from_year(da, str(i))))
@@ -77,7 +79,7 @@ def construct_season_dataframe_no_fill(da, season): # constructs without filled 
         mC = get_average_season_temperature(
             get_data_from_season(season, get_data_from_year(da, str(i))))
 
-        d = {
+        d = { #make sure decembers is from last year.
             "maxC": mC,
             "yyyy": i
         }
@@ -86,3 +88,7 @@ def construct_season_dataframe_no_fill(da, season): # constructs without filled 
         df.append(d)
     df = pd.DataFrame(df)
     return df
+
+def write_to_file(data):
+    f = open("out.txt", "w+")
+    f.write(str(data))
