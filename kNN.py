@@ -60,7 +60,7 @@ class knn:
             mean += set[i]['ma']
 
         mean = mean / set_size
-        print(set)
+        #print(set)
         return mean
 
     def calculate_fade_points(self, k, data, season, year):

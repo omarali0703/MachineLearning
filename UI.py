@@ -1,6 +1,7 @@
 import wx
 import Utils
-import kNN as knn
+import knn_new as knn
+import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigCanvas
@@ -9,6 +10,7 @@ class win(wx.Frame) :
     def __init__(self, parent, title):
 
         super(win, self).__init__(parent, title=title, size=(1200, 600))
+
         panel = wx.Panel(self)
         vbox = wx.BoxSizer(wx.VERTICAL)
 
@@ -16,7 +18,7 @@ class win(wx.Frame) :
         vbox.Add(self.btn, 0, wx.ALIGN_LEFT)
         self.btn.Bind(wx.EVT_BUTTON, self.OnClicked)
 
-        self.figure = knn.plt.figure()
+        self.figure = plt.figure()
         self.canvas = FigCanvas(panel, -1, self.figure)
 
         vbox.Add(self.canvas, 1, wx.LEFT | wx.TOP | wx.GROW)
@@ -28,25 +30,34 @@ class win(wx.Frame) :
 
     def plot(self, year):
         y = int(year)
+        k = 5
+        max_year = knn.raw_data.tail(1).iloc[0]['yyyy']
+        if (max_year - y) < k // 2:
+            knn.k_calc_type = "FORCAST METHOD"
 
-        n_wi = knn.knn.calculate_data_from_date(knn, 5, knn.da, "winter", y)
-        n_sp = knn.knn.calculate_data_from_date(knn, 5, knn.da, "spring", y)
-        n_su = knn.knn.calculate_data_from_date(knn, 5, knn.da, "summer", y)
-        n_au = knn.knn.calculate_data_from_date(knn, 5, knn.da, "autumn", y)
+            n_wi = knn.calculate_knn_forcast(k, y, "winter")
+            n_sp = knn.calculate_knn_forcast(k, y, "spring")
+            n_su = knn.calculate_knn_forcast(k, y, "summer")
+            n_au = knn.calculate_knn_forcast(k, y, "autumn")
+        else:
+            knn.k_calc_type = "POINTCLOUD MID METHOD"
+
+            n_wi = knn.calculate_knn_mid(k, y, "winter")
+            n_sp = knn.calculate_knn_mid(k, y, "spring")
+            n_su = knn.calculate_knn_mid(k, y, "summer")
+            n_au = knn.calculate_knn_mid(k, y, "autumn")
 
         # using the actual data from the sheet. Nothing is generated, only plotted.
-        o_wi = Utils.construct_season_dataframe_no_fill(knn.da, "winter")
-        o_sp = Utils.construct_season_dataframe_no_fill(knn.da, "spring")
-        o_su = Utils.construct_season_dataframe_no_fill(knn.da, "summer")
-        o_au = Utils.construct_season_dataframe_no_fill(knn.da, "autumn")
+        o_data = [None, None, None, None, None, None, None, None, None, None, None, None]
+        if y != (max_year + 1):
+            o_wi = knn.construct_season_avg(y, "winter")
+            o_sp = knn.construct_season_avg(y, "spring")
+            o_su = knn.construct_season_avg(y, "summer")
+            o_au = knn.construct_season_avg(y, "autumn")
 
-        oldwi = o_wi.loc[o_wi['yyyy'] == int(year)]['maxC']
-        oldsp = o_sp.loc[o_sp['yyyy'] == int(year)]['maxC']
-        oldsu = o_su.loc[o_su['yyyy'] == int(year)]['maxC']
-        oldau = o_au.loc[o_au['yyyy'] == int(year)]['maxC']
+            o_data = [None, o_wi, None, None, o_sp, None, None, o_su, None, None, o_au, None]
 
         data = [None, n_wi, None, None, n_sp, None, None, n_su, None, None, n_au, None]
-        o_data = [None, oldwi, None, None, oldsp, None, None, oldsu, None, None, oldau, None]
 
         ax = self.figure.add_subplot(111)
         ax.cla()
@@ -59,7 +70,7 @@ class win(wx.Frame) :
         fade_patch = patches.Patch(color='green', label='Fade in/out Value')
 
         ax.legend(handles=[predict_patch, actual_patch, fade_patch])
-        ax.set_title('Prediction and Reflection for ' + year)
+        ax.set_title('Prediction and Reflection for ' + year + '{'+knn.k_calc_type+'}')
 
         
         #TODO fix prediction for 2019
@@ -69,20 +80,7 @@ class win(wx.Frame) :
         ax.plot(['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'], data,'rx')
         ax.plot(['Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'], o_data, 'bx')
 
-        fade_wi = knn.knn.calculate_fade_points(knn, 5, knn.da, "winter", int(year))
-        fade_sp = knn.knn.calculate_fade_points(knn, 5, knn.da, "spring", int(year))
-        fade_su = knn.knn.calculate_fade_points(knn, 5, knn.da, "summer", int(year))
-        fade_au = knn.knn.calculate_fade_points(knn, 5, knn.da, "autumn", int(year))
-
-        for i in range(3):
-            ax.plot(fade_sp.iloc[i]['mm'], fade_sp.iloc[i]['temp'], 'gx')
-            ax.plot(fade_su.iloc[i]['mm'], fade_su.iloc[i]['temp'], 'gx')
-            ax.plot(fade_au.iloc[i]['mm'], fade_au.iloc[i]['temp'], 'gx')
-        # Exemption for winter
-        ax.plot(0, fade_wi.iloc[0]['temp'], 'gx')
-        ax.plot(1, fade_wi.iloc[1]['temp'], 'gx')
-        ax.plot(2, fade_wi.iloc[2]['temp'], 'gx')
-
+        plt.plot([1, 1], [4, 4], 'k-', lw=2)
         self.canvas.draw()
 
     def OnClicked(self, event):
@@ -96,4 +94,5 @@ class win(wx.Frame) :
 
 app = wx.App()
 win(None, 'Predicting Seasonal Transitions')
+
 app.MainLoop()

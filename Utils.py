@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 def get_data_from_year(d, year):
     return d.loc[d['yyyy'] == int(year)]
 
+def get_month_data(d, year, mm):
+    return get_data_from_year(d, year).loc[get_data_from_year(d, year)[mm]]
+
 def get_data_from_season(season, year_data):
    seasons = {
        'winter': year_data.loc[year_data['mm'].isin([12, 1, 2])], # Talk about this error in the design on the software (and about grabbing the wrong december var)
@@ -13,7 +16,7 @@ def get_data_from_season(season, year_data):
        'autumn': year_data.loc[year_data['mm'].isin([9, 10, 11])]
 
    }
-   print(seasons.get('winter'))
+   #print(seasons.get('winter'))
 
    return seasons.get(season)
 
